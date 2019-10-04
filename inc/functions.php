@@ -1,12 +1,18 @@
 <?php
 
-function get_catalog_count($category = null) { //optional paramter if category pass to function
+function get_catalog_count($category = null, $search = null) { //optional paramter if category pass to function
     $category = strtolower($category); // make sure if the category pass to the function is always in lower case as we have in our database.
     include("connection.php");
 
     try {
         $sql = "SELECT COUNT(media_id) FROM Media";
-        if (!empty($category)) {
+        if (!empty($search)) {
+            $result = $db->prepare(
+                $sql
+                ." WHERE title LIKE ?"
+            );
+            $result->bindValue(1,'%'.$search.'%',PDO::PARAM_STR); // with bindvalue we can use the concatination but not with bindparam
+        } else if (!empty($category)) {
             $result = $db->prepare(
             $sql
             . " WHERE LOWER(category) = ?"
@@ -75,6 +81,39 @@ function category_catalog_array($category, $limit = null, $offset = 0) {
         } else {
             $results = $db->prepare($sql);//Try to run the query to get the results
             $results->bindParam(1,$category,PDO::PARAM_STR);
+        }
+        $results->execute();
+    } catch (Exception $e) {
+        echo "Unable to Retrived the Data";
+        exit;
+    }
+
+    $catalog = $results->fetchAll();
+    return $catalog;
+}
+
+function search_catalog_array($search, $limit = null, $offset = 0) {
+    include("connection.php");
+    
+    try {
+        $sql = "SELECT media_id, title, category, img 
+            FROM media
+            WHERE title LIKE ?
+            ORDER BY REPLACE(
+                     REPLACE(
+                     REPLACE(title, 'The ', ''),
+                     'An ', ''
+                     ),
+                     'A ', ''
+                     )";
+        if (is_integer($limit)){
+            $results = $db->prepare($sql . " LIMIT ? OFFSET ?");
+            $results->bindValue(1,'%'.$search.'%',PDO::PARAM_STR);
+            $results->bindParam(2,$limit,PDO::PARAM_INT);
+            $results->bindParam(3,$offset,PDO::PARAM_INT);
+        } else {
+            $results = $db->prepare($sql);//Try to run the query to get the results
+            $results->bindValue(1,'%'.$search.'%',PDO::PARAM_STR);
         }
         $results->execute();
     } catch (Exception $e) {
